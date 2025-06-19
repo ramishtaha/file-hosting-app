@@ -18,6 +18,27 @@ fi
 JAVA_VERSION=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
 echo "☕ Java Version: $JAVA_VERSION"
 
+# Check if Maven is installed
+if ! command -v mvn &> /dev/null; then
+    echo "📦 Installing Maven..."
+    sudo apt update
+    sudo apt install -y maven
+fi
+
+# Build the application if JAR doesn't exist
+if [ ! -f "target/file-hosting-app-1.0.0.jar" ]; then
+    echo "🔨 Building application..."
+    mvn clean package -DskipTests
+    
+    if [ ! -f "target/file-hosting-app-1.0.0.jar" ]; then
+        echo "❌ Build failed. JAR file not found."
+        exit 1
+    fi
+    echo "✅ Application built successfully"
+else
+    echo "📦 Using existing JAR file"
+fi
+
 # Create application directories
 echo "📁 Creating application directories..."
 sudo mkdir -p /opt/filehosting
@@ -199,4 +220,4 @@ echo "   • Set up nginx reverse proxy for better performance"
 echo "   • Configure firewall to allow port 8080"
 echo "   • Setup automated backups with cron"
 echo "   • Monitor disk space regularly"
-EOF
+echo ""
