@@ -4,8 +4,15 @@ server:
     multipart:
       max-file-size: 20GB
       max-request-size: 20GB
-  connection-timeout: 300000  # 5 minutes for large file uploads
+  connection-timeout: 600000  # 10 minutes for large file uploads on limited bandwidth
   max-http-header-size: 64KB
+  tomcat:
+    threads:
+      max: 50          # Optimized for 2-core CPU
+      min-spare: 10
+    connection-timeout: 600000
+    max-connections: 200  # Conservative for 8GB RAM
+    accept-count: 100
 
 spring:
   application:
@@ -31,19 +38,32 @@ spring:
     cache: false
     prefix: classpath:/templates/
     suffix: .html
-  
-  # Additional configuration for large file handling
+    # Additional configuration for large file handling
   http:
     multipart:
       enabled: true
-      file-size-threshold: 10MB  # Files larger than this will be written to disk
+      file-size-threshold: 50MB  # Increased threshold for NVMe SSD performance
       location: ${java.io.tmpdir}  # Temporary file location
+  
+  # JPA optimizations for limited resources
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+        connection:
+          pool_size: 10  # Conservative pool size for 8GB RAM
 
 # Custom application properties
 app:
   upload:
     path: ${UPLOAD_PATH:./uploads}
-    max-size-gb: ${MAX_STORAGE_GB:50}  # Increased to accommodate large video files
+    max-size-gb: ${MAX_STORAGE_GB:120}  # Use ~75% of 160GB NVMe for uploads (leaving space for OS, app, temp files)
   
 logging:
   level:

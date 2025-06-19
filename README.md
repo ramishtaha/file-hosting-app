@@ -88,10 +88,25 @@ This application supports files up to **20GB** in size, making it perfect for sh
 - Background processing for zip creation
 
 ### 🔧 **System Requirements for Large Files**
-- **RAM**: Minimum 2GB recommended for 20GB file support
+- **RAM**: Minimum 2GB recommended, **8GB optimal for 20GB file support**
 - **Disk Space**: Ensure sufficient space for uploads + temporary files
 - **Network**: Stable connection for large file transfers
-- **Java Heap**: Consider increasing with `-Xmx2g` for heavy usage
+- **Java Heap**: **6GB recommended for 8GB RAM servers** (`-Xmx6g`)
+
+## 🖥️ **Production Server Optimization (8GB RAM, 2 Core, 160GB NVMe)**
+
+For your specific server configuration, the app is optimized with:
+- **Memory Allocation**: 6GB JVM heap (75% of 8GB RAM)
+- **Thread Pool**: 50 max threads (25 per CPU core)
+- **Storage**: 120GB for uploads (75% of 160GB NVMe)
+- **Temp Files**: 50MB threshold for NVMe SSD optimization
+
+### Quick Production Deployment
+```bash
+chmod +x deploy-production.sh
+./deploy-production.sh
+```
+See `PERFORMANCE_TUNING.md` for detailed optimization guide.
 
 ## Configuration
 
@@ -120,7 +135,7 @@ spring:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `UPLOAD_PATH` | `./uploads` | Directory where uploaded files are stored |
-| `MAX_STORAGE_GB` | `50` | Maximum storage capacity in GB |
+| `MAX_STORAGE_GB` | `120` | Maximum storage capacity in GB (optimized for 160GB server) |
 | `PORT` | `8080` | Server port |
 | `MAX_FILE_SIZE` | `20GB` | Maximum individual file size (perfect for large videos) |
 | `MAX_REQUEST_SIZE` | `20GB` | Maximum total request size |

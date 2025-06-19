@@ -1,0 +1,96 @@
+server:
+  port: 8080
+  servlet:
+    multipart:
+      max-file-size: 20GB
+      max-request-size: 20GB
+  connection-timeout: 600000  # 10 minutes for large file uploads
+  max-http-header-size: 64KB
+  tomcat:
+    threads:
+      max: 50          # Optimized for 2-core CPU
+      min-spare: 10
+    connection-timeout: 600000
+    max-connections: 200  # Conservative for 8GB RAM
+    accept-count: 100
+    compression:
+      enabled: true
+      mime-types: text/html,text/css,application/javascript,application/json
+      min-response-size: 1024
+
+spring:
+  application:
+    name: file-hosting-app
+  
+  datasource:
+    url: jdbc:h2:file:./data/filehosting
+    driverClassName: org.h2.Driver
+    username: sa
+    password: 
+    hikari:
+      maximum-pool-size: 8      # Reduced for 8GB RAM
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+        connection:
+          pool_size: 8
+        cache:
+          use_second_level_cache: false  # Disable to save memory
+    
+  h2:
+    console:
+      enabled: false  # Disabled for production security
+      
+  thymeleaf:
+    cache: true      # Enable caching in production
+    prefix: classpath:/templates/
+    suffix: .html
+  
+  # Additional configuration for large file handling
+  http:
+    multipart:
+      enabled: true
+      file-size-threshold: 50MB  # Optimized for NVMe SSD
+      location: ${java.io.tmpdir}
+
+# Custom application properties - Optimized for 8GB RAM, 2 Core, 160GB NVMe
+app:
+  upload:
+    path: ${UPLOAD_PATH:/opt/filehosting/uploads}
+    max-size-gb: ${MAX_STORAGE_GB:120}  # ~75% of 160GB NVMe storage
+  
+# Production logging
+logging:
+  level:
+    com.filehosting: INFO
+    org.springframework.web.multipart: WARN
+    org.hibernate: WARN
+  file:
+    name: /var/log/filehosting/application.log
+    max-size: 100MB
+    max-history: 7
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management endpoints for monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
