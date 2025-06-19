@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Hosting - Minimalist File Storage</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/css/styles.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+            <div class="container">
+                <a class="navbar-brand" href="/">
+                    <i class="bi bi-cloud-upload"></i> File Hosting
+                </a>
+                <div class="navbar-nav ms-auto">
+                    <span class="navbar-text">
+                        <i class="bi bi-files"></i> 
+                        <span th:text="${storageInfo.fileCount}">0</span> files
+                    </span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="container">
+            <!-- Alert Messages -->
+            <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle"></i> <span th:text="${success}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            
+            <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle"></i> <span th:text="${error}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- Storage Warning -->
+            <div th:if="${isStorageFull}" class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <strong>Storage Full!</strong> Cannot upload new files. Please delete some files to free up space.
+            </div>
+            
+            <div th:if="${isStorageWarning and !isStorageFull}" class="alert alert-warning" role="alert">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Storage Warning!</strong> You're running low on storage space.
+            </div>
+
+            <!-- Storage Usage Bar -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-hdd"></i> Storage Usage
+                    </h6>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span th:text="${storageInfo.formattedUsedSpace}">0 B</span>
+                        <span th:text="${storageInfo.formattedTotalSpace}">0 B</span>
+                    </div>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar" 
+                             th:classappend="${storageInfo.usagePercentage >= 95} ? 'bg-danger' : (${storageInfo.usagePercentage >= 80} ? 'bg-warning' : 'bg-success')"
+                             role="progressbar" 
+                             th:style="'width: ' + ${storageInfo.usagePercentage} + '%'"
+                             th:text="${storageInfo.formattedUsagePercentage}">
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        <span th:text="${storageInfo.formattedAvailableSpace}">0 B</span> available
+                    </small>
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-cloud-upload"></i> Upload Files
+                    </h5>
+                    <form action="/upload" method="post" enctype="multipart/form-data" th:unless="${isStorageFull}">
+                        <div class="mb-3">
+                            <div class="drop-zone" id="drop-zone">                                <div class="drop-zone-content">
+                                    <i class="bi bi-cloud-upload-fill display-4 text-muted"></i>
+                                    <p class="mt-2 mb-0">Drag & drop files here or click to browse</p>
+                                    <small class="text-muted">Supports images, videos (up to 20GB), documents, and archives</small>
+                                </div>
+                                <input type="file" name="files" multiple id="file-input" class="d-none" 
+                                       accept="image/*,video/*,audio/*,.pdf,.txt,.zip">
+                            </div>
+                        </div>
+                        
+                        <div id="file-list" class="mb-3" style="display: none;">
+                            <h6>Selected Files:</h6>
+                            <ul id="selected-files" class="list-group"></ul>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="upload-btn" disabled>
+                            <i class="bi bi-upload"></i> Upload Files
+                        </button>
+                    </form>
+                    
+                    <div th:if="${isStorageFull}" class="text-center text-muted">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <p>Upload disabled - Storage is full</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Management -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-files"></i> 
+                        <span th:if="${searchQuery}" th:text="'Search Results for: ' + ${searchQuery}">Files</span>
+                        <span th:unless="${searchQuery}" th:text="${filterType != null} ? ('Filtered by: ' + ${filterType}) : 'All Files'">Files</span>
+                        (<span th:text="${#lists.size(files)}">0</span>)
+                    </h5>
+                    
+                    <div class="btn-group">
+                        <!-- Search -->
+                        <form action="/search" method="get" class="d-flex me-2">
+                            <input type="text" name="q" class="form-control form-control-sm" 
+                                   placeholder="Search files..." th:value="${searchQuery}">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </form>
+                        
+                        <!-- Filters -->
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" 
+                                    data-bs-toggle="dropdown">
+                                <i class="bi bi-funnel"></i> Filter
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/">All Files</a></li>
+                                <li><a class="dropdown-item" href="/filter/images">Images</a></li>
+                                <li><a class="dropdown-item" href="/filter/videos">Videos</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Bulk Actions -->
+                    <div th:if="${!#lists.isEmpty(files)}" class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                                    <i class="bi bi-check-all"></i> Select All
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                                    <i class="bi bi-x"></i> Clear
+                                </button>
+                            </div>
+                            
+                            <div>
+                                <button type="button" class="btn btn-sm btn-success" onclick="downloadSelected()" 
+                                        id="download-selected-btn" disabled>
+                                    <i class="bi bi-download"></i> Download Selected
+                                </button>
+                                <a href="/download-all" class="btn btn-sm btn-info">
+                                    <i class="bi bi-download"></i> Download All
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Files Grid -->
+                    <div th:if="${#lists.isEmpty(files)}" class="text-center text-muted py-5">
+                        <i class="bi bi-file-earmark display-1"></i>
+                        <p class="mt-3">No files found</p>
+                        <small th:if="${searchQuery}">Try a different search term</small>
+                        <small th:unless="${searchQuery}">Upload some files to get started</small>
+                    </div>
+
+                    <div th:unless="${#lists.isEmpty(files)}" class="row">
+                        <div th:each="file : ${files}" class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                            <div class="file-card card h-100">
+                                <div class="card-body p-3">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input file-checkbox" type="checkbox" 
+                                               th:value="${file.id}" onchange="updateSelectionButtons()">
+                                    </div>
+                                    
+                                    <div class="file-icon text-center mb-2">
+                                        <i th:if="${file.image}" class="bi bi-image file-type-icon text-primary"></i>
+                                        <i th:if="${file.video}" class="bi bi-camera-video file-type-icon text-danger"></i>
+                                        <i th:unless="${file.image or file.video}" class="bi bi-file-earmark file-type-icon text-secondary"></i>
+                                    </div>
+                                    
+                                    <h6 class="card-title text-truncate" th:text="${file.originalName}" 
+                                        th:title="${file.originalName}">filename.ext</h6>
+                                    
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            <i class="bi bi-hdd"></i> <span th:text="${file.formattedFileSize}">0 B</span><br>
+                                            <i class="bi bi-calendar"></i> <span th:text="${#temporals.format(file.uploadTime, 'MMM dd, yyyy')}">Date</span><br>
+                                            <i class="bi bi-download"></i> <span th:text="${file.downloadCount}">0</span> downloads
+                                        </small>
+                                    </p>
+                                    
+                                    <div class="btn-group w-100" role="group">
+                                        <a th:href="@{/download/{id}(id=${file.id})}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-download"></i>
+                                        </a>                                        <button type="button" class="btn btn-sm btn-outline-danger delete-file-btn" 
+                                                th:data-file-id="${file.id}" 
+                                                th:data-file-name="${file.originalName}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete <strong id="delete-filename"></strong>?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form id="delete-form" method="post" style="display: inline;">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Download Selected Modal -->
+    <div class="modal fade" id="downloadModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Download Selected Files</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="zip-name" class="form-label">Zip File Name:</label>
+                        <input type="text" class="form-control" id="zip-name" value="selected_files" 
+                               placeholder="Enter zip file name">
+                    </div>
+                    <p>Selected files will be compressed into a zip archive.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmDownloadSelected()">
+                        <i class="bi bi-download"></i> Download Zip
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
